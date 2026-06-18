@@ -7,6 +7,14 @@
 
 This room hands you a queue of three alerts from a SOC dashboard and asks you to triage them the way an L1 analyst would: pick them in priority order (severity first, then oldest first), assign each to yourself before investigating, work the alert details down to a verdict, and justify that verdict with evidence rather than a guess.
 
+## Key Concepts
+
+**Alert lifecycle:** an alert starts as an event on a system — a login, a process launch, a file download. The OS, firewall, or cloud provider logs that event, the log gets shipped to a SIEM or EDR for processing, and rule logic in that tool decides whether to fire an alert. This is the actual pipeline I worked against every day for two years, not a simplified version of it.
+
+**Alert properties:** every alert carries the same core fields regardless of platform — time, rule name, severity, status, assignee, verdict, description, and the specific fields tied to that rule. Knowing these cold matters because triage speed depends on going straight to the fields that matter for that alert type instead of reading the whole thing top to bottom.
+
+**Prioritization:** filter the queue, then sort by severity, then by age within each severity band — work the oldest critical before a newer one, and don't pick up an alert someone else already has in progress. That's genuinely how the SOCs I worked in ran the queue, not a textbook simplification.
+
 ## Alert: Potential Data Exfiltration
 
 **Details:** Critical severity, 2025-03-21 13:30. Source IP `192.168.45.66`, source network `UK04/MEETINGROOM`, destination `*.zoom.us`. 5.8 GB sent, 5.2 GB received.
