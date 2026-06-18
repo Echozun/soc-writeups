@@ -3,14 +3,34 @@
 **Source:** TryHackMe — SOC Level 1 path
 **Date:** 2026-06-14
 
-## What this covers
+## Overview
 
-The alert lifecycle: a system event (file creation, process execution, login, etc.) gets logged, the log is sent to a SIEM/EDR for aggregation, and rule logic in that tool fires an alert. From there, the investigation workflow: take the alert, form an initial hypothesis without anchoring to it too hard, work the who/what/when/where/why, confirm everything against raw logs, and write it up.
+This room hands you a queue of three alerts from a SOC dashboard and asks you to triage them the way an L1 analyst would: pick them in priority order (severity first, then oldest first), assign each to yourself before investigating, work the alert details down to a verdict, and justify that verdict with evidence rather than a guess.
 
-## How this maps to real work
+## Alert: Potential Data Exfiltration
 
-This isn't "reminds me of" something — it's literally every part of my job for two years. Alert triage was the daily work, 8 hours a day. There's no single anecdote to point to because the entire room is the job description, not a piece of it.
+**Details:** Critical severity, 2025-03-21 13:30. Source IP `192.168.45.66`, source network `UK04/MEETINGROOM`, destination `*.zoom.us`. 5.8 GB sent, 5.2 GB received.
 
-## What was actually new
+**Investigation:** Worked this one first since it was the highest severity in the queue. The source network being a meeting room and the destination being Zoom's domain space pointed toward expected behavior right away — large bidirectional transfers are normal for video conferencing. In a real SOC with SIEM access, I'd pull the logs on the source device and any associated users to rule out anything riding alongside the legitimate traffic. That tooling wasn't available in this room, so the verdict rests on the network/destination context alone.
 
-Nothing. The room is too basic to have taught me anything. The one notable moment was getting "IOC" wrong on a terminology drill — I said "Indicator of Attack" instead of "Indicator of Compromise." That wasn't a knowledge gap, it was typing faster than I was thinking. Worth knowing the difference between a real gap and a slip, and this was the latter.
+**Verdict:** False positive — authorized and expected Zoom traffic from a meeting room.
+
+## Alert: Double-Extension File Creation
+
+**Details:** High severity, 2025-03-21 13:58. Host `LPT-HR-009`, user `S.Conway`, process `chrome.exe`, target file `C:\Users\S.Conway\Downloads\cats2025.mp4.exe`, downloaded from `https://freecatvideoshd.monster/cats2025.mp4.exe`, MD5 `14d8486f3f63875ef93cfd240c5dc10b`.
+
+**Investigation:** The real extension being `.exe` while masquerading as an `.mp4` was the immediate red flag — classic double-extension phishing. Ran the file hash through OSINT (VirusTotal): 49 of 69 engines flagged it as a trojan under the alias `h0t.exe`. That detection rate was enough on its own to escalate. In a real environment I'd still pivot on the host and user to confirm whether the file was actually executed or got quarantined first, and check for related activity on both — but for this alert, the hash result was sufficient evidence to call it.
+
+**Verdict:** True positive — confirmed malicious file (trojan), downloaded from an untrusted domain disguised as a video file.
+
+## Alert: Download from GitHub Repository
+
+**Details:** Low severity, 2025-03-21 13:02. Accessed URL `https://github.com/facebook/react`, user `G.Chandler`, host `LPT-IT-063`, source network `VPN/DEVELOPERS`.
+
+**Investigation:** Two things lined up here: the repo itself (React, maintained by Meta — a known, trusted source) and the source network being the developer VPN segment. Both point toward routine developer activity rather than anything suspicious. In a real case I'd confirm with identity management that the user is actually provisioned as a developer, plus the standard pivot for unrelated suspicious activity on the host — but the repo legitimacy and network context were enough to close this one out.
+
+**Verdict:** False positive — authorized developer activity, legitimate repository.
+
+## Takeaway
+
+Alert triage was the entire job for two years, not a piece of it — this room is the job description compressed into three tickets. The thing worth naming explicitly: two of these three closed as false positives, and both times the call came down to *context* (which network, which user role, which destination) rather than anything technical about the traffic itself. The one true positive turned on a single concrete artifact — a hash that came back dirty. That's the actual shape of L1 triage: most of the queue is legitimate activity that looks alarming out of context, and the job is telling the difference fast without missing the one that isn't.
