@@ -1,0 +1,30 @@
+# Network Discovery Detection
+**Source:** TryHackMe — SOC Level 1 Path **Difficulty:** Easy
+
+## Key Concepts
+
+### Network Discovery
+Discovery/reconnaissance is the first phase of an attack, and it's also one of the most common phases a SOC analyst actually sees in the queue, since the majority of attacks get stopped right here before they progress any further. In this phase, an attacker is working through a specific set of questions: What assets can be accessed? What are the IP addresses, ports, operating systems, and services running on those assets? What versions of those services are running? Does any of those services have a vulnerability that can be exploited? An attacker may ask further questions depending on what they find as they go, but this set is the core framework driving the discovery phase.
+
+The complication for defenders is that legitimate discovery activity looks almost identical to malicious discovery activity. Organizations run their own network discovery software, and for entirely legitimate reasons: to inventory the organization's assets and make sure everything is documented, to confirm that no unnecessary IP, port, or service is exposed and that whatever is running is actually necessary, and to confirm that vulnerabilities are patched — or at minimum, that the exploitable ones are patched. SOC teams have to differentiate between "good" discovery and "bad" discovery even though the underlying actions are largely the same; only the intent behind them differs. To manage that ambiguity, SOC teams generally rely on two techniques: allowlisting known internal and benign external scanners so their routine activity doesn't trigger alerts in the first place, and integrating threat intelligence into detection use cases so that scanning activity only gets flagged when it's coming from a source already known or suspected to be malicious.
+
+### External vs. Internal Scanning
+Where a scan originates from changes both its severity and the correct response to it:
+
+![Attack lifecycle chain with Discovery highlighted](../../images/network-discovery-detection/Pasted%20image%2020260718165132.png)
+
+- **External scanning activity** is scanning sourced from outside the organization's network, aimed at machines inside the network. This is indicative of the reconnaissance phase of the attack lifecycle specifically, because the attacker doesn't yet have an initial foothold inside the network — which is exactly why it's treated as a lower-severity type of scanning. The standard response is generally to block the source IP at the firewall, although that response is not foolproof (the attacker can simply come back from a different source).
+- **Internal scanning activity** is scanning that originates from inside the network and targets other internal machines. This type of scan indicates the attacker is already at the discovery phase of the attack lifecycle from a position inside the network — meaning they're already in. Because of that, it's treated as a high-severity type of scanning. There's no one-size-fits-all response to it; it requires a deeper investigation to actually determine the root cause of how the attacker got inside and what they're doing.
+
+### Horizontal vs. Vertical Scanning
+Once attackers know what hosts are present on a network, they typically want to know what ports are open on those hosts — this is a port scan, and it comes in two forms with distinct log signatures:
+
+- **Horizontal scanning** is when an attacker scans for the same port across multiple destination IP addresses. These scans are used to identify which hosts on a network expose a particular port or service. It can be detected in the logs by looking for the same source IP, a single destination port, but multiple destination IP addresses across multiple events.
+- **Vertical scanning** is when an attacker scans a single host across multiple ports. This is used to footprint a host and identify all of its exposed services in depth — generally used against higher-value targets, in order to find and exploit a specific vulnerability to gain access to that one system. It can be detected in the logs by looking for the same source IP, the same destination IP, but multiple destination ports across multiple events.
+
+### The Mechanics of Scanning
+Different scanning techniques exploit different pieces of protocol behavior, and that choice also determines how detectable each one is:
+
+- **Ping sweeps** are one of the most basic network scanning techniques, generally used just to identify which hosts are present and online within a network. The scan works by sending ICMP packets to a range of hosts — anything online responds with its own ICMP reply. This type of scan is generally blocked outright by security controls on modern, hardened networks, which limits how useful it is against anything beyond a poorly defended target.
+- **TCP SYN scans** abuse the normal functionality of the TCP three-way handshake to identify online hosts and their open ports. The scanner sends a SYN request to the host; if a SYN-ACK response comes back, the host is online and the specific port the request was sent to is open. Because this looks like the beginning of an entirely ordinary TCP connection, this type of scan generally blends in with other traffic on the network, making it noticeably harder to detect than a ping sweep.
+- **UDP scans** work by sending a UDP packet (usually empty) to a specific port on a host. If the port is closed, the host will typically respond with an ICMP "unreachable" reply — which tells the scanner the host is online, but that particular port is closed. If the scanner actually receives a UDP packet back in response, that's direct evidence the port is open, though this is comparatively rare. In some cases, the scanner won't receive any response at all until a set timer is reached; if that happens, the scanner will just mark the port as "open" by default — but that outcome is not clear evidence the port is actually open, just the absence of a "closed" signal within the wait window.
